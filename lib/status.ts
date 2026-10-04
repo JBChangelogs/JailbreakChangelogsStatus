@@ -72,4 +72,21 @@ export function padBeats(beats: Heartbeat[]): (Heartbeat | null)[] {
   return [...Array(MAX_BEATS - recent.length).fill(null), ...recent];
 }
 
+// Display groups by exact monitor name. Anything not listed lands in "Other",
+// so new monitors still show up without a code change.
+export const GROUPS: { name: string; monitors: string[] }[] = [
+  { name: "Website", monitors: ["Website", "Testing Website", "Rybbit"] },
+  { name: "APIs", monitors: ["API", "Inventories API", "Image Scans"] },
+  { name: "Bots", monitors: ["Discord Bot", "Inventory Bots", "Robbery Tracking Bots"] },
+];
+
+export function groupMonitors(monitors: Monitor[]) {
+  const groups = [...GROUPS.map((g) => ({ name: g.name, monitors: [] as Monitor[] })), { name: "Other", monitors: [] as Monitor[] }];
+  for (const m of monitors) {
+    const i = GROUPS.findIndex((g) => g.monitors.includes(m.name));
+    groups[i === -1 ? groups.length - 1 : i].monitors.push(m);
+  }
+  return groups.filter((g) => g.monitors.length > 0);
+}
+
 export const formatUptime = (u: number | null) => (u === null ? "—" : `${(u * 100).toFixed(2)}%`);

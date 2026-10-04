@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { activeMaintenance, currentStatus, formatUptime, overallStatus, padBeats, type Heartbeat, type Monitor } from "./status.ts";
+import { activeMaintenance, currentStatus, formatUptime, groupMonitors, overallStatus, padBeats, type Heartbeat, type Monitor } from "./status.ts";
 
 const beat = (status: Heartbeat["status"], health: Heartbeat["health"] = ""): Heartbeat => ({
   status, health, time: "2026-10-04T17:30:41.288+00:00", msg: "", ping: 50,
@@ -31,6 +31,12 @@ test("current status", () => {
 test("maintenance grouped by id", () => {
   const got = activeMaintenance([mon(1, [], win), mon(2, [beat(1)]), mon(3, [], win)]);
   assert.deepEqual(got, [{ window: win, names: ["M1", "M3"] }]);
+});
+
+test("grouping keeps unknown monitors in Other and drops empty groups", () => {
+  const named = (id: number, name: string) => ({ ...mon(id, []), name });
+  const got = groupMonitors([named(1, "Website"), named(2, "Brand New"), named(3, "API")]);
+  assert.deepEqual(got.map((g) => [g.name, g.monitors.map((m) => m.id)]), [["Website", [1]], ["APIs", [3]], ["Other", [2]]]);
 });
 
 test("padding and formatting", () => {

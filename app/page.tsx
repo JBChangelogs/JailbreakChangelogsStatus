@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  STATUS_LABEL, STATUS_URL, activeMaintenance, currentStatus, formatUptime, latest, overallStatus, padBeats,
+  STATUS_LABEL, STATUS_URL, activeMaintenance, currentStatus, groupMonitors, formatUptime, latest, overallStatus, padBeats,
   type BeatStatus, type Heartbeat, type Maintenance, type Monitor, type Overall,
 } from "@/lib/status";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -108,11 +108,9 @@ export default function StatusPage() {
             <MaintenanceCard key={window.id} window={window} names={names} />
           ))}
           <Legend />
-          <ul className="border-border-card bg-secondary-bg divide-border-secondary mt-3 divide-y rounded-xl border">
-            {monitors.map((m) => (
-              <MonitorRow key={m.id} monitor={m} />
-            ))}
-          </ul>
+          {groupMonitors(monitors).map((g) => (
+            <MonitorGroup key={g.name} name={g.name} monitors={g.monitors} />
+          ))}
         </>
       )}
     </main>
@@ -174,6 +172,30 @@ function StatusPill({ status }: { status: BeatStatus | null }) {
   );
 }
 
+const GROUP_SUMMARY: Record<Overall, { text: string; color: string }> = {
+  down: { text: "Partial outage", color: "text-form-error" },
+  degraded: { text: "Degraded", color: "text-status-warning" },
+  maintenance: { text: "Maintenance", color: "text-link" },
+  operational: { text: "Operational", color: "text-tertiary" },
+};
+
+function MonitorGroup({ name, monitors }: { name: string; monitors: Monitor[] }) {
+  const { text, color } = GROUP_SUMMARY[overallStatus(monitors)];
+  return (
+    <section className="mt-4" aria-label={name}>
+      <div className="mb-2 flex items-baseline justify-between gap-2 px-1">
+        <h3 className="text-secondary-text text-xs font-semibold tracking-[0.16em] uppercase">{name}</h3>
+        <span className={`text-xs font-medium ${color}`}>{text}</span>
+      </div>
+      <ul className="border-border-card bg-secondary-bg divide-border-secondary divide-y rounded-xl border">
+        {monitors.map((m) => (
+          <MonitorRow key={m.id} monitor={m} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function MonitorRow({ monitor: m }: { monitor: Monitor }) {
   const last = latest(m);
   const health = last?.health;
@@ -181,7 +203,7 @@ function MonitorRow({ monitor: m }: { monitor: Monitor }) {
     <li className="px-5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex min-w-0 items-center gap-2">
-          <h3 className="truncate font-medium">{m.name}</h3>
+          <h4 className="truncate font-medium">{m.name}</h4>
           {health && health !== "ok" && (
             <span className={`rounded ${health === "down" ? "bg-status-error/15 text-form-error" : "bg-status-warning/15 text-status-warning"} px-1.5 py-0.5 text-xs font-medium capitalize`}>
               {health}
