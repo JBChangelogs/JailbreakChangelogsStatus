@@ -37,6 +37,9 @@ test("grouping keeps unknown monitors in Other and drops empty groups", () => {
   const named = (id: number, name: string) => ({ ...mon(id, []), name });
   const got = groupMonitors([named(1, "Website"), named(2, "Brand New"), named(3, "API")]);
   assert.deepEqual(got.map((g) => [g.name, g.monitors.map((m) => m.id)]), [["Website", [1]], ["APIs", [3]], ["Other", [2]]]);
+  // config order wins over the API's alphabetical order
+  const site = groupMonitors([named(1, "Rybbit"), named(2, "Testing Website"), named(3, "Website")])[0];
+  assert.deepEqual(site.monitors.map((m) => m.name), ["Website", "Testing Website", "Rybbit"]);
 });
 
 test("padding and formatting", () => {

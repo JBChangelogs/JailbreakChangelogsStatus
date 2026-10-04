@@ -86,6 +86,8 @@ export function groupMonitors(monitors: Monitor[]) {
     const i = GROUPS.findIndex((g) => g.monitors.includes(m.name));
     groups[i === -1 ? groups.length - 1 : i].monitors.push(m);
   }
+  // Within a configured group, keep the order the names are listed in GROUPS.
+  GROUPS.forEach((g, i) => groups[i].monitors.sort((a, b) => g.monitors.indexOf(a.name) - g.monitors.indexOf(b.name)));
   return groups.filter((g) => g.monitors.length > 0);
 }
 
