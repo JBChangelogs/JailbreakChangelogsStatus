@@ -1,0 +1,75 @@
+export const STATUS_URL = "https://api.jailbreakchangelogs.com/v2/uptime/status";
+export const MAX_BEATS = 100;
+
+// 0 = down, 1 = up, 2 = pending, 3 = maintenance
+export type BeatStatus = 0 | 1 | 2 | 3;
+
+export type Heartbeat = {
+  status: BeatStatus;
+  time: string;
+  msg: string;
+  ping: number | null;
+  health: "" | "ok" | "degraded" | "down";
+};
+
+export type Maintenance = {
+  id: number;
+  title: string;
+  description: string | null;
+  end: string | null;
+};
+
+export type Monitor = {
+  id: number;
+  name: string;
+  uptime24h: number | null;
+  heartbeats: Heartbeat[];
+  maintenance: Maintenance | null;
+};
+
+export type Overall = "down" | "degraded" | "maintenance" | "operational";
+
+export const STATUS_LABEL: Record<BeatStatus, string> = {
+  0: "Down",
+  1: "Up",
+  2: "Pending",
+  3: "Maintenance",
+};
+
+export const latest = (m: Monitor): Heartbeat | undefined => m.heartbeats.at(-1);
+
+// Status shown on a monitor's pill; an up monitor inside a maintenance window reads as maintenance.
+export function currentStatus(m: Monitor): BeatStatus | null {
+  const beat = latest(m);
+  if (!beat) return null;
+  return beat.status === 1 && m.maintenance ? 3 : beat.status;
+}
+
+export function overallStatus(monitors: Monitor[]): Overall {
+  const live = monitors.filter((m) => m.heartbeats.length > 0);
+  const last = live.map((m) => latest(m)!);
+  if (last.some((b) => b.status === 0)) return "down";
+  if (last.some((b) => b.status === 2 || b.health === "degraded")) return "degraded";
+  if (live.some((m) => latest(m)!.status === 3 || m.maintenance)) return "maintenance";
+  return "operational";
+}
+
+// One entry per distinct maintenance window, with the monitors it covers.
+export function activeMaintenance(monitors: Monitor[]) {
+  const byId = new Map<number, { window: Maintenance; names: string[] }>();
+  for (const m of monitors) {
+    if (!m.maintenance) continue;
+    const entry = byId.get(m.maintenance.id) ?? { window: m.maintenance, names: [] };
+    entry.names.push(m.name);
+    byId.set(m.maintenance.id, entry);
+  }
+  return [...byId.values()];
+}
+
+// Left-pads with null so every bar has MAX_BEATS segments.
+export function padBeats(beats: Heartbeat[]): (Heartbeat | null)[] {
+  const recent = beats.slice(-MAX_BEATS);
+  return [...Array(MAX_BEATS - recent.length).fill(null), ...recent];
+}
+
+export const formatUptime = (u: number | null) => (u === null ? "—" : `${(u * 100).toFixed(2)}%`);

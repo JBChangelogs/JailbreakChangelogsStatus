@@ -1,0 +1,34 @@
+import type { Metadata, Viewport } from "next";
+import { Geist } from "next/font/google";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import "./globals.css";
+
+const geist = Geist({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "Jailbreak Changelogs Status",
+  description: "Live health of Jailbreak Changelogs services.",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2462cd",
+};
+
+// Applies the saved theme class before React hydrates to prevent a flash.
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark'||t==='amoled'){document.documentElement.classList.add(t);}}catch(e){}})();`;
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
+      <body className={`${geist.className} bg-primary-bg text-primary-text flex min-h-screen flex-col antialiased`}>
+        <Header />
+        <div className="flex-1">{children}</div>
+        <Footer />
+      </body>
+    </html>
+  );
+}
