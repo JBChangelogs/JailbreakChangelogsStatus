@@ -1,10 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import "./globals.css";
-
-const geist = Geist({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Jailbreak Changelogs Status",
@@ -24,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body className={`${geist.className} bg-primary-bg text-primary-text flex min-h-screen flex-col antialiased`}>
+      <body className="bg-primary-bg text-primary-text flex min-h-screen flex-col font-sans">
         <Header />
         <div className="flex-1">{children}</div>
         <Footer />

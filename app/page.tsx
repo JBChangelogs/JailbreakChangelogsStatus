@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  STATUS_LABEL, STATUS_URL, activeMaintenance, currentStatus, groupMonitors, formatUptime, latest, overallStatus, padBeats,
+  STATUS_LABEL, STATUS_URL, activeMaintenance, currentStatus, formatMsg, groupMonitors, formatUptime, latest, overallStatus, padBeats,
   type BeatStatus, type Heartbeat, type Maintenance, type Monitor, type Overall,
 } from "@/lib/status";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -11,7 +11,7 @@ const REFRESH_MS = 60_000;
 
 const BEAT_BG: Record<BeatStatus, string> = {
   0: "bg-status-error",
-  1: "bg-tertiary",
+  1: "bg-status-success",
   2: "bg-status-warning",
   3: "bg-status-info",
 };
@@ -20,7 +20,7 @@ const BANNER: Record<Overall, { text: string; tone: string }> = {
   down: { text: "Some services are down", tone: "border-status-error/50 bg-status-error/15 [--dot:var(--color-status-error)]" },
   degraded: { text: "Some services are degraded", tone: "border-status-warning/50 bg-status-warning/15 [--dot:var(--color-status-warning)]" },
   maintenance: { text: "Maintenance in progress", tone: "border-status-info/50 bg-status-info/15 [--dot:var(--color-status-info)]" },
-  operational: { text: "All systems operational", tone: "border-tertiary/50 bg-tertiary/15 [--dot:var(--color-tertiary)]" },
+  operational: { text: "All systems operational", tone: "border-status-success/50 bg-status-success/15 [--dot:var(--color-status-success)]" },
 };
 
 const timeShort = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -173,10 +173,10 @@ function StatusPill({ status }: { status: BeatStatus | null }) {
 }
 
 const GROUP_SUMMARY: Record<Overall, { text: string; color: string }> = {
-  down: { text: "Partial outage", color: "text-form-error" },
+  down: { text: "Partial outage", color: "text-status-error" },
   degraded: { text: "Degraded", color: "text-status-warning" },
   maintenance: { text: "Maintenance", color: "text-link" },
-  operational: { text: "Operational", color: "text-tertiary" },
+  operational: { text: "Operational", color: "text-status-success" },
 };
 
 function MonitorGroup({ name, monitors }: { name: string; monitors: Monitor[] }) {
@@ -205,7 +205,7 @@ function MonitorRow({ monitor: m }: { monitor: Monitor }) {
         <div className="flex min-w-0 items-center gap-2">
           <h4 className="truncate font-medium">{m.name}</h4>
           {health && health !== "ok" && (
-            <span className={`rounded ${health === "down" ? "bg-status-error/15 text-form-error" : "bg-status-warning/15 text-status-warning"} px-1.5 py-0.5 text-xs font-medium capitalize`}>
+            <span className={`rounded ${health === "down" ? "bg-status-error/15 text-status-error" : "bg-status-warning/15 text-status-warning"} px-1.5 py-0.5 text-xs font-medium capitalize`}>
               {health}
             </span>
           )}
@@ -240,16 +240,45 @@ function HeartbeatBar({ beats }: { beats: Heartbeat[] }) {
 function Segment({ beat }: { beat: Heartbeat | null }) {
   if (!beat) return <li className="bg-quaternary-bg/40 h-8 w-1.5 shrink-0 rounded-[2px]" aria-label="No data" />;
   const label = `${STATUS_LABEL[beat.status]} at ${timeShort(beat.time)}, ${pingText(beat.ping)}`;
+  const msg = beat.msg ? formatMsg(beat.msg) : null;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <li className={`h-8 w-1.5 shrink-0 rounded-[2px] ${BEAT_BG[beat.status]} hover:opacity-70`} aria-label={label} />
       </TooltipTrigger>
-      <TooltipContent className="max-w-60">
-        <p className="font-semibold">{STATUS_LABEL[beat.status]}</p>
-        <p className="text-tertiary-text">{dateTime(beat.time)}</p>
-        <p className="text-secondary-text mt-1 break-words">{beat.msg || "—"}</p>
-        <p className="text-secondary-text">{pingText(beat.ping)}</p>
+      <TooltipContent className="w-64 p-0">
+        <div className="flex items-center justify-between gap-3 px-3 pt-2.5">
+          <span className="flex items-center gap-1.5 text-sm font-semibold">
+            <span className={`size-2 rounded-full ${BEAT_BG[beat.status]}`} aria-hidden />
+            {STATUS_LABEL[beat.status]}
+          </span>
+          <time dateTime={beat.time} className="text-secondary-text tabular-nums">
+            {new Date(beat.time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}
+          </time>
+        </div>
+        <p className="text-tertiary-text px-3">
+          {new Date(beat.time).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+        </p>
+        {msg && (
+          <div className="mt-2 px-3">
+            {msg.scope && (
+              <p className="text-tertiary-text text-[10px] font-semibold tracking-wider uppercase">{msg.scope}</p>
+            )}
+            <p className="text-primary-text text-sm leading-snug break-words">{msg.text}</p>
+          </div>
+        )}
+        <dl className="border-border-card mt-2.5 space-y-1 border-t px-3 py-2">
+          <div className="flex justify-between gap-3">
+            <dt className="text-tertiary-text">Response time</dt>
+            <dd className="tabular-nums">{pingText(beat.ping)}</dd>
+          </div>
+          {beat.health && (
+            <div className="flex justify-between gap-3">
+              <dt className="text-tertiary-text">Health</dt>
+              <dd className="capitalize">{beat.health}</dd>
+            </div>
+          )}
+        </dl>
       </TooltipContent>
     </Tooltip>
   );

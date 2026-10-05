@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { activeMaintenance, currentStatus, formatUptime, groupMonitors, overallStatus, padBeats, type Heartbeat, type Monitor } from "./status.ts";
+import { activeMaintenance, currentStatus, formatMsg, formatUptime, groupMonitors, overallStatus, padBeats, type Heartbeat, type Monitor } from "./status.ts";
 
 const beat = (status: Heartbeat["status"], health: Heartbeat["health"] = ""): Heartbeat => ({
   status, health, time: "2026-10-04T17:30:41.288+00:00", msg: "", ping: 50,
@@ -40,6 +40,14 @@ test("grouping keeps unknown monitors in Other and drops empty groups", () => {
   // config order wins over the API's alphabetical order
   const site = groupMonitors([named(1, "Rybbit"), named(2, "Testing Website"), named(3, "Website")])[0];
   assert.deepEqual(site.monitors.map((m) => m.name), ["Website", "Testing Website", "Rybbit"]);
+});
+
+test("check messages are tidied for display", () => {
+  assert.deepEqual(formatMsg("down: bots: no bots online"), { scope: "Bots", text: "No bots online" });
+  assert.deepEqual(formatMsg("200 - OK"), { scope: null, text: "200 - OK" });
+  assert.deepEqual(formatMsg("all 2 replicas ok"), { scope: null, text: "All 2 replicas ok" });
+  assert.deepEqual(formatMsg("Under maintenance: Database upgrade"), { scope: "Under maintenance", text: "Database upgrade" });
+  assert.deepEqual(formatMsg("down: https://x.io:8080 timed out"), { scope: null, text: "https://x.io:8080 timed out" });
 });
 
 test("padding and formatting", () => {

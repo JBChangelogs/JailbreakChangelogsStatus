@@ -91,4 +91,17 @@ export function groupMonitors(monitors: Monitor[]) {
   return groups.filter((g) => g.monitors.length > 0);
 }
 
+const STATUS_WORDS = new Set(["up", "down", "pending", "degraded", "ok", "maintenance"]);
+const capitalize = (s: string) => (/^[a-z]+:\/\//.test(s) ? s : s.charAt(0).toUpperCase() + s.slice(1));
+
+// Turns check text like "down: bots: no bots online" into { scope: "Bots", text: "No bots online" }.
+// A leading status word is dropped (the tooltip already shows the status); earlier
+// "x: " parts become the scope. Splits only on ": " so URLs and times stay intact.
+export function formatMsg(msg: string): { scope: string | null; text: string } {
+  const parts = msg.trim().split(/:\s+/).filter(Boolean);
+  if (parts.length > 1 && STATUS_WORDS.has(parts[0].toLowerCase())) parts.shift();
+  const text = capitalize(parts.pop() ?? "");
+  return { scope: parts.length ? parts.map(capitalize).join(" › ") : null, text };
+}
+
 export const formatUptime = (u: number | null) => (u === null ? "—" : `${(u * 100).toFixed(2)}%`);
