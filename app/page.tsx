@@ -8,6 +8,12 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const REFRESH_MS = 60_000;
+const BOT_HEALTH_URLS = {
+  "Inventory Bots": "https://inventories.jailbreakchangelogs.com/bots/health?method=1",
+  "Robbery Tracking Bots": "https://inventories.jailbreakchangelogs.com/bots/health?method=2",
+} as const;
+
+type BotCounts = Partial<Record<keyof typeof BOT_HEALTH_URLS, number>>;
 
 const BEAT_BG: Record<BeatStatus, string> = {
   0: "bg-status-error",
@@ -31,6 +37,7 @@ export default function StatusPage() {
   const [monitors, setMonitors] = useState<Monitor[] | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
+  const [botCounts, setBotCounts] = useState<BotCounts>({});
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -50,6 +57,30 @@ export default function StatusPage() {
         setFailed(false);
       } catch {
         if (!ctrl.signal.aborted) setFailed(true);
+      }
+
+      if (!ctrl.signal.aborted) {
+        const entries = await Promise.all(Object.entries(BOT_HEALTH_URLS).map(async ([name, url]) => {
+          try {
+            const res = await fetch(url, { cache: "no-store", signal: ctrl!.signal });
+            if (!res.ok) return null;
+            const data: unknown = await res.json();
+            if (typeof data !== "object" || data === null || !("checks" in data)) return null;
+            const checks = data.checks;
+            if (typeof checks !== "object" || checks === null || !("bots" in checks)) return null;
+            const bots = checks.bots;
+            if (typeof bots !== "object" || bots === null || !("online" in bots)) return null;
+            const online = bots.online;
+            return typeof online === "number" && Number.isFinite(online) && online >= 0
+              ? [name, online] as const
+              : null;
+          } catch {
+            return null;
+          }
+        }));
+        if (!ctrl.signal.aborted) {
+          setBotCounts(Object.fromEntries(entries.filter((entry): entry is readonly [string, number] => entry !== null)));
+        }
       }
     };
 
@@ -109,7 +140,7 @@ export default function StatusPage() {
           ))}
           <Legend />
           {groupMonitors(monitors).map((g) => (
-            <MonitorGroup key={g.name} name={g.name} monitors={g.monitors} />
+            <MonitorGroup key={g.name} name={g.name} monitors={g.monitors} botCounts={botCounts} />
           ))}
         </>
       )}
@@ -120,13 +151,30 @@ export default function StatusPage() {
 function LastUpdated({ at }: { at: number }) {
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 5_000);
-    return () => clearInterval(id);
+    const tick = () => {
+      if (!document.hidden) setNow(Date.now());
+    };
+    const id = setInterval(tick, 1_000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+    };
   }, []);
-  const secs = Math.round((Math.max(now, at) - at) / 1000);
+  const secs = Math.floor(Math.max(0, now - at) / 1000);
   const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-  const text = secs < 60 ? rtf.format(-secs, "second") : rtf.format(-Math.round(secs / 60), "minute");
-  return <p title={new Date(at).toLocaleString()}>Last updated {text}</p>;
+  const unit: Intl.RelativeTimeFormatUnit = secs < 60 ? "second" : secs < 3_600 ? "minute" : secs < 86_400 ? "hour" : "day";
+  const count = unit === "second" ? secs : unit === "minute" ? Math.floor(secs / 60) : unit === "hour" ? Math.floor(secs / 3_600) : Math.floor(secs / 86_400);
+  const parts = count === 0 ? null : rtf.formatToParts(-count, unit);
+  return (
+    <p title={new Date(at).toLocaleString([], { dateStyle: "medium", timeStyle: "medium" })}>
+      Last updated {parts
+        ? parts.map((part, index) => part.type === "integer"
+          ? <span key={`${unit}-${count}-${index}`} style={{ width: `${Math.max(unit === "day" ? 3 : 2, part.value.length)}ch` }} className="inline-block text-center animate-[counter-pop_180ms_ease-out_both] tabular-nums motion-reduce:animate-none">{part.value}</span>
+          : <span key={index}>{part.value}</span>)
+        : rtf.format(0, "second")}
+    </p>
+  );
 }
 
 function Banner({ overall }: { overall: Overall }) {
@@ -172,45 +220,77 @@ function StatusPill({ status }: { status: BeatStatus | null }) {
   );
 }
 
-const GROUP_SUMMARY: Record<Overall, { text: string; color: string }> = {
-  down: { text: "Partial outage", color: "text-status-error" },
-  degraded: { text: "Degraded", color: "text-status-warning" },
-  maintenance: { text: "Maintenance", color: "text-link" },
-  operational: { text: "Operational", color: "text-status-success" },
-};
-
-function MonitorGroup({ name, monitors }: { name: string; monitors: Monitor[] }) {
-  const { text, color } = GROUP_SUMMARY[overallStatus(monitors)];
+function MonitorGroup({ name, monitors, botCounts }: { name: string; monitors: Monitor[]; botCounts: BotCounts }) {
+  const [open, setOpen] = useState(false);
+  const uptimes = monitors.flatMap((m) => m.uptime24h === null ? [] : [m.uptime24h]);
+  const uptime = uptimes.length ? uptimes.reduce((sum, value) => sum + value, 0) / uptimes.length : null;
   return (
-    <section className="mt-4" aria-label={name}>
-      <div className="mb-2 flex items-baseline justify-between gap-2 px-1">
-        <h3 className="text-secondary-text text-xs font-semibold tracking-[0.16em] uppercase">{name}</h3>
-        <span className={`text-xs font-medium ${color}`}>{text}</span>
+    <section className="border-border-card bg-secondary-bg relative mt-4 overflow-clip rounded-xl border shadow-[0_2px_8px_-4px_var(--color-border-card)]" aria-label={name}>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className="bg-primary-bg hover:bg-tertiary-bg/50 focus-visible:ring-link relative z-20 flex w-full cursor-pointer select-none items-start gap-2 overflow-clip rounded-xl p-3 text-left shadow-[0_1px_4px_-2px_var(--color-border-card)] transition-colors duration-200 focus-visible:ring-2 focus-visible:outline-none motion-reduce:transition-none sm:gap-3 sm:p-4"
+      >
+        <span className="shrink-0 p-1">
+          <svg className={`text-secondary-text size-3 transition-transform duration-300 motion-reduce:transition-none ${open ? "rotate-0" : "-rotate-90"}`} viewBox="0 0 12 12" fill="none" aria-hidden>
+            <path d="M1.75 4.25 6 8.5l4.25-4.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+        <span className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <span className="text-primary-text min-w-0 flex-1 text-sm leading-tight font-semibold sm:text-base">{name}</span>
+          <span className="flex shrink-0 items-center gap-2">
+            <GroupHeartbeat monitors={monitors} />
+            <span className="text-secondary-text whitespace-nowrap text-sm leading-tight tabular-nums sm:text-base">
+              <span className="font-medium">{formatUptime(uptime)}</span> uptime
+            </span>
+          </span>
+        </span>
+      </button>
+      <div className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${open ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`} aria-hidden="true">
+        <div className="min-h-0 overflow-clip">
+          <div className={`flex flex-col px-2 pb-2 transition-[opacity,filter,transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${open ? "translate-y-1 opacity-0 blur-[3px]" : "translate-y-0 opacity-100 blur-0"}`}>
+            <div className="bg-primary-bg relative z-[3] mx-2 h-2 rounded-b-lg shadow-[0_1px_4px_-2px_var(--color-border-card)]" />
+            <div className="bg-primary-bg/70 relative z-[2] -mt-0.5 mx-4 h-2 rounded-b-lg shadow-[0_1px_4px_-2px_var(--color-border-card)]" />
+            <div className="bg-primary-bg/40 relative z-[1] -mt-0.5 mx-6 h-2 rounded-b-lg shadow-[0_1px_4px_-2px_var(--color-border-card)]" />
+          </div>
+        </div>
       </div>
-      <ul className="border-border-card bg-secondary-bg divide-border-secondary divide-y rounded-xl border">
-        {monitors.map((m) => (
-          <MonitorRow key={m.id} monitor={m} />
-        ))}
-      </ul>
+      <div className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+        <div className="min-h-0 overflow-clip">
+          <div
+            aria-hidden={!open}
+            inert={!open}
+            className={`bg-secondary-bg px-2 pb-2 transition-[opacity,filter,transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${open ? "translate-y-0 opacity-100 blur-0" : "pointer-events-none -translate-y-1 opacity-0 blur-[3px]"}`}
+          >
+            <ul className="divide-border-secondary divide-y">
+              {monitors.map((m) => (
+                <MonitorRow key={m.id} monitor={m} botCount={botCounts[m.name as keyof typeof BOT_HEALTH_URLS]} />
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
 
-function MonitorRow({ monitor: m }: { monitor: Monitor }) {
+function MonitorRow({ monitor: m, botCount }: { monitor: Monitor; botCount?: number }) {
   const last = latest(m);
   const health = last?.health;
   return (
-    <li className="px-5 py-4">
+    <li className="px-5 py-4 sm:px-7">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex min-w-0 items-center gap-2">
           <h4 className="truncate font-medium">{m.name}</h4>
           {health && health !== "ok" && (
-            <span className={`rounded ${health === "down" ? "bg-status-error/15 text-status-error" : "bg-status-warning/15 text-status-warning"} px-1.5 py-0.5 text-xs font-medium capitalize`}>
+            <span className={`rounded px-1.5 py-0.5 text-xs font-medium capitalize ${health === "down" ? "bg-status-error/15 text-status-error" : "bg-status-warning/15 text-status-warning"}`}>
               {health}
             </span>
           )}
         </div>
         <div className="text-secondary-text flex items-center gap-3 text-sm tabular-nums">
+          {botCount !== undefined && <span>{botCount} {botCount === 1 ? "bot" : "bots"} online</span>}
           {last?.ping != null && <span>{last.ping} ms</span>}
           <span title="Uptime over the last 24 hours">{formatUptime(m.uptime24h)}</span>
           <StatusPill status={currentStatus(m)} />
@@ -218,6 +298,38 @@ function MonitorRow({ monitor: m }: { monitor: Monitor }) {
       </div>
       <HeartbeatBar beats={m.heartbeats} />
     </li>
+  );
+}
+
+function GroupHeartbeat({ monitors }: { monitors: Monitor[] }) {
+  const columns = Array.from({ length: 40 }, (_, column) => {
+    const beats = monitors.flatMap((m) => {
+      const beat = m.heartbeats.at(-40 + column);
+      return beat ? [beat.status] : [];
+    });
+    if (beats.includes(0)) return 0;
+    if (beats.includes(2)) return 2;
+    if (beats.includes(3)) return 3;
+    return beats.length ? 1 : null;
+  });
+  const runs = columns.reduce<{ status: BeatStatus | null; length: number }[]>((result, status) => {
+    const lastRun = result.at(-1);
+    if (lastRun?.status === status) lastRun.length += 1;
+    else result.push({ status, length: 1 });
+    return result;
+  }, []);
+  return (
+    <div className="hidden shrink-0 overflow-hidden sm:block" aria-hidden="true">
+      <div className="flex h-1.5 w-28 items-center gap-[3px]">
+        {runs.map(({ status, length }, i) => (
+          <span
+            key={i}
+            className={`h-1.5 rounded-full ${status === null ? "bg-quaternary-bg/50" : BEAT_BG[status]}`}
+            style={{ flex: `${length} 0 ${status === 1 ? "0px" : "6px"}` }}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -244,41 +356,22 @@ function Segment({ beat }: { beat: Heartbeat | null }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <li className={`h-8 w-1.5 shrink-0 rounded-[2px] ${BEAT_BG[beat.status]} hover:opacity-70`} aria-label={label} />
+        <li className={`h-8 w-1.5 shrink-0 rounded-[2px] transition-opacity duration-150 hover:opacity-70 motion-reduce:transition-none ${BEAT_BG[beat.status]}`} aria-label={label} />
       </TooltipTrigger>
-      <TooltipContent className="w-64 p-0">
-        <div className="flex items-center justify-between gap-3 px-3 pt-2.5">
-          <span className="flex items-center gap-1.5 text-sm font-semibold">
-            <span className={`size-2 rounded-full ${BEAT_BG[beat.status]}`} aria-hidden />
-            {STATUS_LABEL[beat.status]}
-          </span>
-          <time dateTime={beat.time} className="text-secondary-text tabular-nums">
-            {new Date(beat.time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}
+      <TooltipContent className="max-w-72 px-2.5 py-2">
+        <div className="flex items-center gap-2 text-xs">
+          <span className={`size-2 shrink-0 rounded-full ${BEAT_BG[beat.status]}`} aria-hidden />
+          <span className="font-semibold">{STATUS_LABEL[beat.status]}</span>
+          <time dateTime={beat.time} className="text-secondary-text ml-auto shrink-0 tabular-nums">
+            {new Date(beat.time).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
           </time>
         </div>
-        <p className="text-tertiary-text px-3">
-          {new Date(beat.time).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
-        </p>
-        {msg && (
-          <div className="mt-2 px-3">
-            {msg.scope && (
-              <p className="text-tertiary-text text-[10px] font-semibold tracking-wider uppercase">{msg.scope}</p>
-            )}
-            <p className="text-primary-text text-sm leading-snug break-words">{msg.text}</p>
-          </div>
-        )}
-        <dl className="border-border-card mt-2.5 space-y-1 border-t px-3 py-2">
-          <div className="flex justify-between gap-3">
-            <dt className="text-tertiary-text">Response time</dt>
-            <dd className="tabular-nums">{pingText(beat.ping)}</dd>
-          </div>
-          {beat.health && (
-            <div className="flex justify-between gap-3">
-              <dt className="text-tertiary-text">Health</dt>
-              <dd className="capitalize">{beat.health}</dd>
-            </div>
-          )}
-        </dl>
+        <div className="text-tertiary-text mt-1 flex items-center gap-2 text-[11px]">
+          <span>{pingText(beat.ping)}</span>
+          {beat.health && <span className="capitalize">· {beat.health}</span>}
+          {msg?.scope && <span className="truncate">· {msg.scope}</span>}
+        </div>
+        {msg && <p className="text-primary-text mt-1 max-w-64 text-xs leading-snug break-words">{msg.text}</p>}
       </TooltipContent>
     </Tooltip>
   );
@@ -297,17 +390,6 @@ function Legend() {
         <h2 className="font-semibold">Services</h2>
         <p className="text-tertiary-text text-xs">Each bar is one check, about a minute apart</p>
       </div>
-      <ul className="flex flex-wrap gap-1.5" aria-label="Legend">
-        {LEGEND.map(({ label, bg }) => (
-          <li
-            key={label}
-            className="border-border-card bg-secondary-bg text-secondary-text flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium"
-          >
-            <span className={`h-3.5 w-1.5 rounded-[2px] ${bg}`} aria-hidden />
-            {label}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
