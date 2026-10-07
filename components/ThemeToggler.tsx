@@ -74,7 +74,6 @@ const THEMES = [
   { value: "amoled" as const, label: "AMOLED", Icon: MoonStarsIcon },
 ];
 
-// Same as the main site's ThemeContext minus the realtime preference sync.
 export function ThemeToggler({
   className,
   size = "md",
@@ -82,7 +81,6 @@ export function ThemeToggler({
   className?: string;
   size?: "sm" | "md";
 }) {
-  // Starts "dark" to match the server render; the saved value is read after mount.
   const [theme, setThemeState] = useState<Theme>("dark");
   const [open, setOpen] = useState(false);
 

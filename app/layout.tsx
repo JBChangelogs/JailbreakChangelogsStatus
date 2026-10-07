@@ -12,7 +12,6 @@ export const viewport: Viewport = {
   themeColor: "#2462cd",
 };
 
-// Applies the saved theme class before React hydrates to prevent a flash.
 const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark'||t==='amoled'){document.documentElement.classList.add(t);}}catch(e){}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

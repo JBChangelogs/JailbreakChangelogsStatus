@@ -1,7 +1,5 @@
-export const STATUS_URL = "https://api.jailbreakchangelogs.com/v2/uptime/status";
 export const MAX_BEATS = 100;
 
-// 0 = down, 1 = up, 2 = pending, 3 = maintenance
 export type BeatStatus = 0 | 1 | 2 | 3;
 
 export type Heartbeat = {
@@ -38,7 +36,6 @@ export const STATUS_LABEL: Record<BeatStatus, string> = {
 
 export const latest = (m: Monitor): Heartbeat | undefined => m.heartbeats.at(-1);
 
-// Status shown on a monitor's pill; an up monitor inside a maintenance window reads as maintenance.
 export function currentStatus(m: Monitor): BeatStatus | null {
   const beat = latest(m);
   if (!beat) return null;
@@ -54,7 +51,6 @@ export function overallStatus(monitors: Monitor[]): Overall {
   return "operational";
 }
 
-// One entry per distinct maintenance window, with the monitors it covers.
 export function activeMaintenance(monitors: Monitor[]) {
   const byId = new Map<number, { window: Maintenance; names: string[] }>();
   for (const m of monitors) {
@@ -66,14 +62,11 @@ export function activeMaintenance(monitors: Monitor[]) {
   return [...byId.values()];
 }
 
-// Left-pads with null so every bar has MAX_BEATS segments.
 export function padBeats(beats: Heartbeat[]): (Heartbeat | null)[] {
   const recent = beats.slice(-MAX_BEATS);
   return [...Array(MAX_BEATS - recent.length).fill(null), ...recent];
 }
 
-// Display groups by exact monitor name. Anything not listed lands in "Other",
-// so new monitors still show up without a code change.
 export const GROUPS: { name: string; monitors: string[] }[] = [
   { name: "Website", monitors: ["Website", "Testing Website", "Rybbit"] },
   { name: "APIs", monitors: ["API", "Inventories API", "Image Scans"] },
@@ -86,7 +79,6 @@ export function groupMonitors(monitors: Monitor[]) {
     const i = GROUPS.findIndex((g) => g.monitors.includes(m.name));
     groups[i === -1 ? groups.length - 1 : i].monitors.push(m);
   }
-  // Within a configured group, keep the order the names are listed in GROUPS.
   GROUPS.forEach((g, i) => groups[i].monitors.sort((a, b) => g.monitors.indexOf(a.name) - g.monitors.indexOf(b.name)));
   return groups.filter((g) => g.monitors.length > 0);
 }
@@ -94,9 +86,6 @@ export function groupMonitors(monitors: Monitor[]) {
 const STATUS_WORDS = new Set(["up", "down", "pending", "degraded", "ok", "maintenance"]);
 const capitalize = (s: string) => (/^[a-z]+:\/\//.test(s) ? s : s.charAt(0).toUpperCase() + s.slice(1));
 
-// Turns check text like "down: bots: no bots online" into { scope: "Bots", text: "No bots online" }.
-// A leading status word is dropped (the tooltip already shows the status); earlier
-// "x: " parts become the scope. Splits only on ": " so URLs and times stay intact.
 export function formatMsg(msg: string): { scope: string | null; text: string } {
   const parts = msg.trim().split(/:\s+/).filter(Boolean);
   if (parts.length > 1 && STATUS_WORDS.has(parts[0].toLowerCase())) parts.shift();

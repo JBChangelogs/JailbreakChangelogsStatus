@@ -1,5 +1,4 @@
-// Mirrors the main site's navbar; links are absolute because this app lives on its own subdomain.
-export const SITE_URL = "https://jailbreakchangelogs.com";
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL;
 
 export type NavItem = {
   href: string;

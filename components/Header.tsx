@@ -9,9 +9,6 @@ import { ThemeToggler } from "@/components/ThemeToggler";
 import { cn } from "@/lib/utils";
 import { NAV, SITE_URL, type NavItem } from "@/lib/nav";
 
-// Ported from the main site's Header + NavbarModern, minus auth, notifications,
-// messages and tickers (the status page has no login).
-
 const NavDropdownItem = ({ href, icon, title, description, badge, wide }: NavItem) => (
   <a
     href={href}
@@ -55,7 +52,6 @@ function DesktopNav() {
   const viewportContainerRef = useRef<HTMLDivElement>(null);
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
-  // Centre the dropdown under whichever trigger is open.
   useEffect(() => {
     const trigger = triggerRefs.current[value];
     if (!trigger || !rootRef.current || !viewportContainerRef.current) return;
@@ -64,7 +60,6 @@ function DesktopNav() {
     viewportContainerRef.current.style.left = `${t.left - r.left + t.width / 2}px`;
   }, [value]);
 
-  // ponytail: Radix's default hover-close replaces the main site's safe-triangle tracking; port it if menus feel twitchy.
   return (
     <div ref={rootRef} className="absolute left-1/2 -translate-x-1/2">
       <NavigationMenu.Root style={{ position: "relative" }} delayDuration={0} value={value} onValueChange={setValue}>
@@ -200,8 +195,7 @@ export default function Header() {
 
   return (
     <>
-      {/* Desktop navbar */}
-      <div className="sticky top-0 z-1300 hidden xl:block" style={{ viewTransitionName: "navbar" }}>
+      <div className="sticky top-0 z-1300 hidden xl:block">
         <div className="bg-secondary-bg border-border-card border-b">
           <div className="relative flex h-15 items-center justify-between px-4">
             <Logo className="h-10 w-auto" />
@@ -211,8 +205,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobile header */}
-      <div className="sticky top-0 z-1400 block xl:hidden" style={{ viewTransitionName: "navbar-mobile" }}>
+      <div className="sticky top-0 z-1400 block xl:hidden">
         <div className="bg-secondary-bg border-border-card border-b">
           <div className="flex items-center justify-between px-4 py-2">
             <Logo className="h-9 w-auto sm:h-12" />

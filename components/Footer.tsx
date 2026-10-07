@@ -3,8 +3,6 @@ import { Icon } from "@/components/ui/IconWrapper";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SITE_URL } from "@/lib/nav";
 
-// Ported from the main site's Footer, minus ads/consent hooks, Report an Issue and version info.
-
 const SOCIALS = [
   { href: "https://x.com/JBChangelogs", icon: "prime:twitter", label: "Twitter/X", tip: "Follow us on X (Twitter)" },
   { href: "https://discord.jailbreakchangelogs.com", icon: "ic:baseline-discord", label: "Discord", tip: "Join our Discord server" },

@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 
 const Sheet = SheetPrimitive.Root;
 
-// Right-side drawer only; the main site's other sides aren't used here.
 function SheetContent({
   className,
   overlayClassName,

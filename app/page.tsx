@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from "react";
 import {
-  STATUS_LABEL, STATUS_URL, activeMaintenance, currentStatus, formatMsg, groupMonitors, formatUptime, latest, overallStatus, padBeats,
+  STATUS_LABEL, activeMaintenance, currentStatus, formatMsg, groupMonitors, formatUptime, latest, overallStatus, padBeats,
   type BeatStatus, type Heartbeat, type Maintenance, type Monitor, type Overall,
 } from "@/lib/status";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
+const STATUS_URL = process.env.NEXT_PUBLIC_STATUS_API_URL!;
+const INVENTORIES_URL = process.env.NEXT_PUBLIC_INVENTORIES_API_URL;
 const REFRESH_MS = 60_000;
 const BOT_HEALTH_URLS = {
-  "Inventory Bots": "https://inventories.jailbreakchangelogs.com/bots/health?method=1",
-  "Robbery Tracking Bots": "https://inventories.jailbreakchangelogs.com/bots/health?method=2",
+  "Inventory Bots": `${INVENTORIES_URL}/bots/health?method=1`,
+  "Robbery Tracking Bots": `${INVENTORIES_URL}/bots/health?method=2`,
 } as const;
 
 type BotCounts = Partial<Record<keyof typeof BOT_HEALTH_URLS, number>>;
@@ -44,7 +46,6 @@ export default function StatusPage() {
     let lastAttempt = 0;
     let ctrl: AbortController | undefined;
 
-    // One list request per refresh: the API rate-limits each IP to 100 requests/minute.
     const load = async () => {
       lastAttempt = Date.now();
       ctrl?.abort();
@@ -92,7 +93,6 @@ export default function StatusPage() {
       }, delay);
     };
 
-    // Paused while hidden; on return, refresh right away only if the last attempt is stale.
     const onVisibility = () => {
       if (document.hidden) clearTimeout(timer);
       else schedule(Math.max(0, REFRESH_MS - (Date.now() - lastAttempt)));
@@ -138,7 +138,7 @@ export default function StatusPage() {
           {activeMaintenance(monitors).map(({ window, names }) => (
             <MaintenanceCard key={window.id} window={window} names={names} />
           ))}
-          <Legend />
+          <ServicesHeading />
           {groupMonitors(monitors).map((g) => (
             <MonitorGroup key={g.name} name={g.name} monitors={g.monitors} botCounts={botCounts} />
           ))}
@@ -333,9 +333,6 @@ function GroupHeartbeat({ monitors }: { monitors: Monitor[] }) {
   );
 }
 
-// Fixed-width segments and gaps so spacing is identical at every width. The list is
-// newest-first in a wrapping row-reverse flex: when a row is too narrow for all
-// 100, the oldest beats wrap onto a hidden second line instead of squeezing.
 function HeartbeatBar({ beats }: { beats: Heartbeat[] }) {
   return (
     <div className="mt-3">
@@ -377,19 +374,11 @@ function Segment({ beat }: { beat: Heartbeat | null }) {
   );
 }
 
-const LEGEND: { label: string; bg: string }[] = [
-  ...([1, 2, 0, 3] as BeatStatus[]).map((st) => ({ label: STATUS_LABEL[st], bg: BEAT_BG[st] })),
-  { label: "No data", bg: "bg-quaternary-bg/40" },
-];
-
-// Swatches use the same shape as bar segments so the mapping is obvious.
-function Legend() {
+function ServicesHeading() {
   return (
-    <div className="mt-8 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h2 className="font-semibold">Services</h2>
-        <p className="text-tertiary-text text-xs">Each bar is one check, about a minute apart</p>
-      </div>
+    <div className="mt-8">
+      <h2 className="font-semibold">Services</h2>
+      <p className="text-tertiary-text text-xs">Each bar is one check, about a minute apart</p>
     </div>
   );
 }
