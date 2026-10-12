@@ -1,5 +1,3 @@
-"use client";
-
 import { useId } from "react";
 import { Icon as IconifyIcon, type IconProps } from "@iconify/react";
 

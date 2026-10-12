@@ -26,7 +26,7 @@
 
 ## Running Locally
 
-Requires Node.js 22.6+.
+Requires Node.js 22.6+. Built with Vite; `npm run build` outputs a static site to `dist/`.
 
 ```bash
 npm install
@@ -36,9 +36,9 @@ npm run dev
 
 | Variable | Description |
 | --- | --- |
-| `NEXT_PUBLIC_SITE_URL` | Main site, used for header and footer links |
-| `NEXT_PUBLIC_STATUS_API_URL` | Uptime status endpoint the page polls every minute |
-| `NEXT_PUBLIC_INVENTORIES_API_URL` | Inventories API base, used for live bot counts |
+| `VITE_SITE_URL` | Main site, used for header and footer links |
+| `VITE_STATUS_API_URL` | Uptime status endpoint the page polls every minute |
+| `VITE_INVENTORIES_API_URL` | Inventories API base, used for live bot counts |
 
 Run the tests with `npm test`.
 

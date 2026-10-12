@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { Icon } from "@/components/ui/IconWrapper";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SITE_URL } from "@/lib/nav";
@@ -42,7 +41,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-[1.35fr_0.85fr_0.85fr_1.3fr]">
           <div className="sm:col-span-2 lg:col-span-1">
             <a href={SITE_URL} className="inline-block" aria-label="Jailbreak Changelogs home">
-              <Image src="/logos/JBCL_Long_Transparent.webp" alt="Jailbreak Changelogs" width={256} height={58} className="h-auto w-56" />
+              <img src="/logos/JBCL_Long_Transparent.webp" alt="Jailbreak Changelogs" width={256} height={58} className="h-auto w-56" />
             </a>
             <p className="text-secondary-text mt-4 max-w-xs text-sm leading-relaxed">
               Jailbreak updates, values, and community tools in one place.

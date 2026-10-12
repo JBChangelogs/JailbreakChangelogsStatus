@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import {
   STATUS_LABEL, activeMaintenance, currentStatus, formatMsg, groupMonitors, formatUptime, latest, overallStatus, padBeats,
@@ -7,8 +5,8 @@ import {
 } from "@/lib/status";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const STATUS_URL = process.env.NEXT_PUBLIC_STATUS_API_URL!;
-const INVENTORIES_URL = process.env.NEXT_PUBLIC_INVENTORIES_API_URL;
+const STATUS_URL = import.meta.env.VITE_STATUS_API_URL!;
+const INVENTORIES_URL = import.meta.env.VITE_INVENTORIES_API_URL;
 const REFRESH_MS = 60_000;
 const BOT_HEALTH_URLS = {
   "Inventory Bots": `${INVENTORIES_URL}/bots/health?method=1`,

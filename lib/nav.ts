@@ -1,4 +1,4 @@
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL;
+export const SITE_URL = import.meta.env.VITE_SITE_URL;
 
 export type NavItem = {
   href: string;

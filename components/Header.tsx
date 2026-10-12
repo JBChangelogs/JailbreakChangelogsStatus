@@ -1,7 +1,4 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { NavigationMenu } from "radix-ui";
 import { Icon } from "@/components/ui/IconWrapper";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -34,13 +31,12 @@ const NavDropdownItem = ({ href, icon, title, description, badge, wide }: NavIte
 
 const Logo = ({ className }: { className: string }) => (
   <a href={SITE_URL} className="block" aria-label="Jailbreak Changelogs home">
-    <Image
+    <img
       src="/logos/JBCL_Long_Transparent.webp"
       alt="Jailbreak Changelogs Logo"
       width={256}
       height={58}
-      quality={90}
-      priority
+      fetchPriority="high"
       className={className}
     />
   </a>
